@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>霖哥大牛至 - 吹牛骰盅</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; min-height: 100dvh;
+      background: radial-gradient(ellipse at 50% 30%, #2a1f1a 0%, #1a1210 40%, #0d0a08 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      color: #e0e0e0; padding: 12px; user-select: none;
+      perspective: 1200px;
+    }
+    body::before {
+      content: '';
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background:
+        repeating-linear-gradient(90deg, transparent 0px, transparent 3px, rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 4px),
+        repeating-linear-gradient(0deg, transparent 0px, transparent 30px, rgba(0,0,0,0.02) 30px, rgba(0,0,0,0.02) 31px);
+      pointer-events: none;
+    }
+
+    .scene {
+      width: 100%; max-width: 420px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+
+    .title {
+      text-align: center;
+      font-size: 2rem; font-weight: 900; letter-spacing: 8px;
+      margin-bottom: 4px;
+      background: linear-gradient(180deg, #ffd700 0%, #ff8c00 50%, #cc6600 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      filter: drop-shadow(0 2px 8px rgba(255,140,0,0.3));
+      position: relative; z-index: 10;
+    }
+    .title::after {
+      content: '✦ 吹牛骰盅 ✦';
+      display: block; font-size: 0.65rem; font-weight: 400; letter-spacing: 6px; margin-top: 2px;
+      -webkit-text-fill-color: initial; color: rgba(255,215,0,0.25);
+    }
+
+    /* ===== 舞台 ===== */
+    .stage {
+      position: relative;
+      width: 320px; height: 280px;
+      margin: 0 auto;
+      transform-style: preserve-3d;
+    }
+
+    /* 桌面 */
+    .table-base {
+      position: absolute;
+      bottom: 5px; left: 50%;
+      transform: translateX(-50%);
+      width: 280px; height: 30px;
+      background: radial-gradient(ellipse at 50% 0%, rgba(60,40,30,0.5) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+
+    /* ===== 骰子 ===== */
+    .dice-container {
+      position: absolute;
+      bottom: 30px; left: 50%;
+      transform: translateX(-50%);
+      width: 240px; height: 110px;
+      display: flex; justify-content: center; align-items: center;
+      gap: 8px;
+      perspective: 800px;
+      transform-style: preserve-3d;
+      z-index: 2;
+    }
+
+    .dice-3d {
+      width: 50px; height: 50px;
+      transform-style: preserve-3d;
+      position: relative;
+      flex-shrink: 0;
+      transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* 骰子各面 */
+    .dice-3d .face {
+      position: absolute;
+      width: 50px; height: 50px;
+      border-radius: 6px;
+      background: linear-gradient(145deg, #ffffff, #e0e0e0);
+      border: 1px solid rgba(0,0,0,0.08);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      padding: 7px;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+
+    .dice-3d .face-front  { transform: translateZ(25px); }
+    .dice-3d .face-back   { transform: rotateY(180deg) translateZ(25px); }
+    .dice-3d .face-right  { transform: rotateY(90deg) translateZ(25px); }
+    .dice-3d .face-left   { transform: rotateY(-90deg) translateZ(25px); }
+    .dice-3d .face-top    { transform: rotateX(90deg) translateZ(25px); }
+    .dice-3d .face-bottom { transform: rotateX(-90deg) translateZ(25px); }
+
+    /* 骰子圆点 */
+    .dice-3d .face .dot {
+      display: flex; justify-content: center; align-items: center;
+    }
+    .dice-3d .face .dot::before {
+      content: '';
+      display: block;
+      width: 10px; height: 10px;
+      background: radial-gradient(circle at 35% 30%, #444, #111 80%);
+      border-radius: 50%;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.5), 0 1px 1px rgba(255,255,255,0.2);
+    }
+
+    .dice-3d .face .dot-1 { grid-column: 1; grid-row: 1; }
+    .dice-3d .face .dot-2 { grid-column: 2; grid-row: 1; }
+    .dice-3d .face .dot-3 { grid-column: 3; grid-row: 1; }
+    .dice-3d .face .dot-4 { grid-column: 1; grid-row: 2; }
+    .dice-3d .face .dot-5 { grid-column: 2; grid-row: 2; }
+    .dice-3d .face .dot-6 { grid-column: 3; grid-row: 2; }
+    .dice-3d .face .dot-7 { grid-column: 1; grid-row: 3; }
+    .dice-3d .face .dot-8 { grid-column: 2; grid-row: 3; }
+    .dice-3d .face .dot-9 { grid-column: 3; grid-row: 3; }
+
+    /* 骰子边缘高光 */
+    .dice-3d::after {
+      content: '';
+      position: absolute;
+      top: -1px; left: -1px; right: -1px; bottom: -1px;
+      border-radius: 7px;
+      box-shadow:
+        0 4px 15px rgba(0,0,0,0.4),
+        0 0 0 1px rgba(255,255,255,0.06);
+      pointer-events: none;
+      transform: translateZ(24px);
+    }
+
+    /* 骰子投影 */
+    .dice-shadow {
+      position: absolute;
+      bottom: -8px; left: 50%;
+      transform: translateX(-50%) rotateX(80deg);
+      width: 75%; height: 8px;
+      background: radial-gradient(ellipse, rgba(0,0,0,0.3) 0%, transparent 70%);
+      border-radius: 50%;
+      filter: blur(3px);
+    }
+
+    /* ===== 骰盅（实体不透明） ===== */
+    .cup-wrapper {
+      position: absolute;
+      bottom: 5px; left: 50%;
+      transform: translateX(-50%);
+      width: 290px; height: 240px;
+      transform-style: preserve-3d;
+      z-index: 5;
+      transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none;
+    }
+    .cup-wrapper.lifted {
+      transform: translateX(-50%) translateY(-180px) rotateX(-8deg);
+    }
+
+    /* 骰盅主体 - 实体不透明皮革质感 */
+    .cup-body {
+      width: 100%; height: 100%;
+      border-radius: 50% 50% 40% 40% / 55% 55% 30% 30%;
+      background:
+        /* 皮革纹理 */
+        repeating-conic-gradient(rgba(0,0,0,0.03) 0% 25%, transparent 0% 50%)
+          0 0 / 8px 8px,
+        /* 主色 - 深棕色皮革 */
+        linear-gradient(170deg,
+          #3d2b1f 0%, #2c1e14 15%,
+          #1f140e 40%, #1a100b 60%,
+          #241810 80%, #2c1e14 100%);
+      border: 1px solid rgba(255,255,255,0.04);
+      box-shadow:
+        0 8px 40px rgba(0,0,0,0.6),
+        inset 0 2px 0 rgba(255,255,255,0.04),
+        inset 0 -4px 8px rgba(0,0,0,0.4);
+      transform: rotateX(8deg);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 骰盅顶部高光 */
+    .cup-body::before {
+      content: '';
+      position: absolute;
+      top: 3%; left: 10%;
+      width: 45%; height: 40%;
+      background: radial-gradient(ellipse at 30% 30%,
+        rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 40%, transparent 70%);
+      border-radius: 50%;
+      transform: rotate(-10deg);
+    }
+
+    /* 骰盅边缘缝线装饰 */
+    .cup-body::after {
+      content: '';
+      position: absolute;
+      top: 6px; left: 6px; right: 6px; bottom: 6px;
+      border-radius: 50% 50% 40% 40% / 55% 55% 30% 30%;
+      border: 1px solid rgba(255,255,255,0.03);
+      pointer-events: none;
+    }
+
+    /* 骰盅底部 - 实心底座完全挡住骰子 */
+    .cup-bottom {
+      position: absolute;
+      bottom: -4px; left: 50%;
+      transform: translateX(-50%);
+      width: 96%; height: 30px;
+      border-radius: 50%;
+      background: linear-gradient(180deg,
+        #1a100b 0%, #0d0805 60%, #080502 100%);
+      border: 1px solid rgba(255,255,255,0.03);
+      box-shadow:
+        0 4px 20px rgba(0,0,0,0.5),
+        inset 0 2px 4px rgba(0,0,0,0.3);
+      z-index: 6;
+    }
+
+    /* 骰盅底部圆环装饰 */
+    .cup-ring {
+      position: absolute;
+      bottom: 8px; left: 50%;
+      transform: translateX(-50%);
+      width: 85%; height: 6px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,215,0,0.06);
+      z-index: 7;
+    }
+
+    /* 骰盅投影 */
+    .cup-shadow {
+      position: absolute;
+      bottom: -8px; left: 50%;
+      transform: translateX(-50%) rotateX(80deg);
+      width: 85%; height: 25px;
+      background: radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, transparent 70%);
+      border-radius: 50%;
+      filter: blur(6px);
+      z-index: 1;
+    }
+
+    /* ===== 摇晃动画 ===== */
+    @keyframes shakeCup {
+      0%   { transform: rotateX(8deg) rotateZ(0deg); }
+      10%  { transform: rotateX(11deg) rotateZ(3deg); }
+      20%  { transform: rotateX(5deg) rotateZ(-2.5deg); }
+      30%  { transform: rotateX(12deg) rotateZ(4deg); }
+      40%  { transform: rotateX(6deg) rotateZ(-3deg); }
+      50%  { transform: rotateX(10deg) rotateZ(2.5deg); }
+      60%  { transform: rotateX(7deg) rotateZ(-2deg); }
+      70%  { transform: rotateX(13deg) rotateZ(3.5deg); }
+      80%  { transform: rotateX(5deg) rotateZ(-2deg); }
+      90%  { transform: rotateX(9deg) rotateZ(1.5deg); }
+      100% { transform: rotateX(8deg) rotateZ(0deg); }
+    }
+
+    .cup-wrapper.shaking .cup-body {
+      animation: shakeCup 0.6s ease-in-out;
+    }
+
+    /* 骰子翻滚 */
+    @keyframes tumbleDice {
+      0%   { transform: rotateX(0deg) rotateY(0deg); }
+      12%  { transform: rotateX(120deg) rotateY(-90deg); }
+      25%  { transform: rotateX(-60deg) rotateY(180deg); }
+      37%  { transform: rotateX(200deg) rotateY(-120deg); }
+      50%  { transform: rotateX(-120deg) rotateY(270deg); }
+      62%  { transform: rotateX(300deg) rotateY(-200deg); }
+      75%  { transform: rotateX(-200deg) rotateY(360deg); }
+      87%  { transform: rotateX(60deg) rotateY(-300deg); }
+      100% { transform: rotateX(0deg) rotateY(0deg); }
+    }
+
+    .dice-3d.shaking {
+      animation: tumbleDice 0.6s ease-in-out;
+    }
+
+    /* 回答错误抖动 */
+    @keyframes shakeWrong {
+      0%, 100% { transform: translateX(0); }
+      10% { transform: translateX(-15px) rotate(-2deg); }
+      20% { transform: translateX(15px) rotate(2deg); }
+      30% { transform: translateX(-12px) rotate(-1deg); }
+      40% { transform: translateX(12px) rotate(1deg); }
+      50% { transform: translateX(-8px); }
+      60% { transform: translateX(8px); }
+      70% { transform: translateX(-5px); }
+      80% { transform: translateX(5px); }
+      90% { transform: translateX(-2px); }
+    }
+
+    /* ===== 按钮 ===== */
+    .roll-btn {
+      display: block; width: 100%; max-width: 280px;
+      padding: 15px 0; margin-top: 12px;
+      font-size: 1.15rem; font-weight: 700; letter-spacing: 6px;
+      color: #fff;
+      background: linear-gradient(180deg, #e94560 0%, #c23152 50%, #a01e3a 100%);
+      border: none; border-radius: 12px; cursor: pointer;
+      box-shadow: 0 6px 24px rgba(233,69,96,0.3), inset 0 1px 0 rgba(255,255,255,0.12);
+      transition: all 0.15s ease;
+      position: relative; z-index: 10;
+      overflow: hidden;
+    }
+    .roll-btn::before {
+      content: '';
+      position: absolute; top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+      transition: left 0.4s ease;
+    }
+    .roll-btn:active::before { left: 100%; }
+    .roll-btn:active { transform: scale(0.97); box-shadow: 0 2px 10px rgba(233,69,96,0.2); }
+    .roll-btn:disabled { opacity: 0.5; transform: none; cursor: not-allowed; }
+    .roll-btn .btn-rolling { display: none; }
+    .roll-btn .btn-idle { display: inline; }
+    .roll-btn.loading .btn-rolling { display: inline; }
+    .roll-btn.loading .btn-idle { display: none; }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 480px) {
+      .title { font-size: 1.6rem; letter-spacing: 6px; }
+      .title::after { font-size: 0.55rem; letter-spacing: 4px; }
+      .stage { width: 280px; height: 240px; }
+      .table-base { width: 240px; }
+      .dice-container { width: 200px; height: 90px; gap: 6px; }
+      .dice-3d { width: 42px; height: 42px; }
+      .dice-3d .face { width: 42px; height: 42px; padding: 6px; }
+      .dice-3d .face-front  { transform: translateZ(21px); }
+      .dice-3d .face-back   { transform: rotateY(180deg) translateZ(21px); }
+      .dice-3d .face-right  { transform: rotateY(90deg) translateZ(21px); }
+      .dice-3d .face-left   { transform: rotateY(-90deg) translateZ(21px); }
+      .dice-3d .face-top    { transform: rotateX(90deg) translateZ(21px); }
+      .dice-3d .face-bottom { transform: rotateX(-90deg) translateZ(21px); }
+      .dice-3d .face .dot::before { width: 8px; height: 8px; }
+      .dice-3d::after { transform: translateZ(20px); }
+      .cup-wrapper { width: 250px; height: 200px; bottom: 2px; }
+      .cup-wrapper.lifted { transform: translateX(-50%) translateY(-150px) rotateX(-8deg); }
+      .cup-bottom { height: 24px; }
+      .roll-btn { padding: 13px 0; font-size: 1rem; letter-spacing: 4px; }
+    }
+
+    @media (max-width: 380px) {
+      .stage { width: 240px; height: 210px; }
+      .table-base { width: 200px; }
+      .dice-container { width: 170px; height: 75px; gap: 5px; }
+      .dice-3d { width: 36px; height: 36px; }
+      .dice-3d .face { width: 36px; height: 36px; padding: 5px; }
+      .dice-3d .face-front  { transform: translateZ(18px); }
+      .dice-3d .face-back   { transform: rotateY(180deg) translateZ(18px); }
+      .dice-3d .face-right  { transform: rotateY(90deg) translateZ(18px); }
+      .dice-3d .face-left   { transform: rotateY(-90deg) translateZ(18px); }
+      .dice-3d .face-top    { transform: rotateX(90deg) translateZ(18px); }
+      .dice-3d .face-bottom { transform: rotateX(-90deg) translateZ(18px); }
+      .dice-3d .face .dot::before { width: 7px; height: 7px; }
+      .dice-3d::after { transform: translateZ(17px); }
+      .cup-wrapper { width: 220px; height: 175px; bottom: 2px; }
+      .cup-wrapper.lifted { transform: translateX(-50%) translateY(-130px) rotateX(-8deg); }
+      .cup-bottom { height: 20px; }
+      .title { font-size: 1.3rem; }
+    }
+
+    @media (max-height: 500px) and (orientation: landscape) {
+      .scene { flex-direction: row; flex-wrap: wrap; max-width: 600px; gap: 4px; }
+      .title { width: 100%; font-size: 1.1rem; margin-bottom: 2px; }
+      .title::after { display: none; }
+      .stage { width: 200px; height: 160px; }
+      .table-base { width: 170px; }
+      .dice-container { width: 150px; height: 65px; gap: 4px; }
+      .dice-3d { width: 32px; height: 32px; }
+      .dice-3d .face { width: 32px; height: 32px; padding: 4px; }
+      .dice-3d .face-front  { transform: translateZ(16px); }
+      .dice-3d .face-back   { transform: rotateY(180deg) translateZ(16px); }
+      .dice-3d .face-right  { transform: rotateY(90deg) translateZ(16px); }
+      .dice-3d .face-left   { transform: rotateY(-90deg) translateZ(16px); }
+      .dice-3d .face-top    { transform: rotateX(90deg) translateZ(16px); }
+      .dice-3d .face-bottom { transform: rotateX(-90deg) translateZ(16px); }
+      .dice-3d .face .dot::before { width: 6px; height: 6px; }
+      .dice-3d::after { transform: translateZ(15px); }
+      .cup-wrapper { width: 180px; height: 145px; bottom: 2px; }
+      .cup-wrapper.lifted { transform: translateX(-50%) translateY(-100px) rotateX(-8deg); }
+      .cup-bottom { height: 18px; }
+      .roll-btn { padding: 10px 0; font-size: 0.85rem; max-width: 160px; margin-top: 4px; }
+    }
+
+    /* ===== 二维码弹窗 ===== */
+    .qr-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: none; justify-content: center; align-items: center;
+      z-index: 100;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    .qr-overlay.show { display: flex; }
+    .qr-modal {
+      background: linear-gradient(145deg, #1e1e32, #141428);
+      border-radius: 28px; padding: 36px 32px 28px;
+      max-width: 340px; width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05);
+      position: relative;
+      animation: qrPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes qrPop {
+      0% { transform: scale(0.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .qr-close {
+      position: absolute; top: 12px; right: 16px;
+      font-size: 1.2rem; color: #666688;
+      cursor: pointer; padding: 4px 8px;
+      transition: color 0.2s;
+    }
+    .qr-close:hover { color: #ffd700; }
+    .qr-title {
+      font-size: 1.2rem; font-weight: 700; letter-spacing: 2px;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #ffd700, #ffaa00);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    #qrCode { display: flex; justify-content: center; margin-bottom: 16px; }
+    #qrCode canvas {
+      border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      max-width: 100%; height: auto;
+    }
+    .qr-url {
+      color: #8888aa; font-size: 0.75rem;
+      word-break: break-all;
+      background: rgba(0,0,0,0.3); padding: 8px 12px;
+      border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);
+      margin-bottom: 12px;
+    }
+    .qr-hint { color: #555577; font-size: 0.75rem; letter-spacing: 1px; }
+
+    /* ===== 入口弹窗 ===== */
+    .entrance-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex; justify-content: center; align-items: center;
+      z-index: 200;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .entrance-overlay.hidden { display: none; }
+    .entrance-modal {
+      background: linear-gradient(170deg, #2c1e14, #1a100b);
+      border-radius: 28px; padding: 40px 32px 32px;
+      max-width: 360px; width: 88%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,215,0,0.1);
+      animation: qrPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      border: 1px solid rgba(255,215,0,0.08);
+    }
+    .entrance-title {
+      font-size: 1.6rem; font-weight: 900; letter-spacing: 3px;
+      margin-bottom: 28px; line-height: 1.4;
+      background: linear-gradient(180deg, #ffd700, #ff8c00);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .entrance-btns { display: flex; flex-direction: column; gap: 14px; }
+    .entrance-btn {
+      padding: 16px 0; border: none; border-radius: 14px;
+      font-size: 1.15rem; font-weight: 700; letter-spacing: 4px;
+      cursor: pointer; transition: all 0.2s ease;
+    }
+    .entrance-btn:active { transform: scale(0.96); }
+    .entrance-btn-big {
+      background: linear-gradient(180deg, #e94560, #c23152);
+      color: #fff;
+      box-shadow: 0 6px 24px rgba(233,69,96,0.3);
+    }
+    .entrance-btn-ok {
+      background: linear-gradient(180deg, #3d2b1f, #2c1e14);
+      color: rgba(255,215,0,0.6);
+      border: 1px solid rgba(255,215,0,0.1);
+    }
+
+    /* ===== 分享按钮 ===== */
+    .share-btn {
+      position: fixed; bottom: 20px; right: 20px;
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      border: none; cursor: pointer;
+      font-size: 1.3rem;
+      box-shadow: 0 4px 20px rgba(255,140,0,0.3);
+      transition: all 0.2s ease;
+      z-index: 50;
+    }
+    .share-btn:active { transform: scale(0.9); }
+    @media (max-width: 480px) {
+      .share-btn { width: 46px; height: 46px; font-size: 1.1rem; bottom: 16px; right: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="scene">
+    <div class="title">霖哥大牛至</div>
+
+    <div class="stage">
+      <!-- 骰子 -->
+      <div class="dice-container" id="diceContainer"></div>
+      <!-- 骰盅（实体不透明，完全盖住骰子） -->
+      <div class="cup-wrapper" id="cupWrapper">
+        <div class="cup-body"></div>
+        <div class="cup-bottom"></div>
+        <div class="cup-ring"></div>
+      </div>
+      <div class="cup-shadow"></div>
+      <div class="table-base"></div>
+    </div>
+
+    <button class="roll-btn" id="rollBtn">
+      <span class="btn-idle">🎲 摇骰</span>
+      <span class="btn-rolling">摇骰中...</span>
+    </button>
+
+    <!-- 入口弹窗：霖哥牛至大不大？ -->
+    <div class="entrance-overlay" id="entranceOverlay">
+      <div class="entrance-modal">
+        <div class="entrance-title">🤔 霖哥牛至大不大？</div>
+        <div class="entrance-btns">
+          <button class="entrance-btn entrance-btn-big" id="entranceBig">🔥 特别大</button>
+          <button class="entrance-btn entrance-btn-ok" id="entranceOk">👍 挺大的</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 二维码弹窗 -->
+    <div class="qr-overlay" id="qrOverlay">
+      <div class="qr-modal">
+        <div class="qr-close" id="qrClose">✕</div>
+        <div class="qr-title">📱 扫码打开</div>
+        <div id="qrCode"></div>
+        <div class="qr-url" id="qrUrl"></div>
+        <div class="qr-hint">用微信或相机扫码即可畅玩</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 分享按钮 -->
+  <button class="share-btn" id="shareBtn">📱 分享到手机</button>
+
+  <script>
+    // ============================================================
+    //  霖哥大牛至 - 3D 吹牛骰盅
+    // ============================================================
+
+    (function() {
+      'use strict';
+
+      // ---- 圆点映射 ----
+      const DOTS = {
+        1: [5], 2: [3,7], 3: [3,5,7],
+        4: [1,3,7,9], 5: [1,3,5,7,9], 6: [1,4,7,3,6,9]
+      };
+
+      // ---- 旋转映射 ----
+      const ROT = {
+        1: 'rotateX(0deg) rotateY(0deg)',
+        2: 'rotateX(0deg) rotateY(-90deg)',
+        3: 'rotateX(-90deg) rotateY(0deg)',
+        4: 'rotateX(90deg) rotateY(0deg)',
+        5: 'rotateX(0deg) rotateY(90deg)',
+        6: 'rotateX(0deg) rotateY(180deg)'
+      };
+
+      // ---- DOM ----
+      const container = document.getElementById('diceContainer');
+      const btn = document.getElementById('rollBtn');
+      const cup = document.getElementById('cupWrapper');
+
+      // ---- 状态 ----
+      let values = [0,0,0,0,0];
+      let rolling = false;
+      let revealed = false;
+      const N = 5;
+
+      // ---- 创建骰子 ----
+      const diceEls = [];
+      for (let i = 0; i < N; i++) {
+        const d = document.createElement('div');
+        d.className = 'dice-3d';
+
+        const faces = [
+          ['front',1],['back',6],['right',2],
+          ['left',5],['top',3],['bottom',4]
+        ];
+
+        for (const [name, val] of faces) {
+          const f = document.createElement('div');
+          f.className = 'face face-' + name;
+          const pos = DOTS[val];
+          for (let p = 1; p <= 9; p++) {
+            const dot = document.createElement('span');
+            dot.className = 'dot dot-' + p;
+            if (!pos.includes(p)) dot.style.opacity = '0';
+            f.appendChild(dot);
+          }
+          d.appendChild(f);
+        }
+
+        const sh = document.createElement('div');
+        sh.className = 'dice-shadow';
+        d.appendChild(sh);
+
+        container.appendChild(d);
+        diceEls.push(d);
+      }
+
+      // ---- 工具 ----
+      function rand() { return Math.floor(Math.random() * 6) + 1; }
+
+      function setVal(el, v) {
+        el.style.transform = ROT[v] || 'rotateX(0deg) rotateY(0deg)';
+      }
+
+      function randomRotate(el) {
+        el.style.transform = `rotateX(${Math.floor(Math.random()*360)}deg) rotateY(${Math.floor(Math.random()*360)}deg)`;
+      }
+
+      function lift(up) {
+        cup.classList.toggle('lifted', up);
+        revealed = up;
+      }
+
+      function showDice(vals, show) {
+        for (let i = 0; i < N; i++) {
+          if (show && vals[i] > 0) setVal(diceEls[i], vals[i]);
+          else randomRotate(diceEls[i]);
+        }
+      }
+
+      function reset() {
+        values = [0,0,0,0,0];
+        lift(false);
+        showDice(values, false);
+      }
+
+      // ---- 音效 ----
+      let ctx = null;
+      function soundShake() {
+        try {
+          if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const now = ctx.currentTime;
+          for (let i = 0; i < 12; i++) {
+            const t = now + i * 0.06 + Math.random() * 0.02;
+            const len = ctx.sampleRate * 0.02;
+            const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let j = 0; j < len; j++) d[j] = (Math.random()*2-1) * Math.exp(-j/(len*0.1));
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            const f = ctx.createBiquadFilter();
+            f.type = 'bandpass'; f.frequency.value = 500 + Math.random()*1500; f.Q.value = 1;
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.03);
+            src.connect(f); f.connect(g); g.connect(ctx.destination);
+            src.start(t); src.stop(t+0.03);
+          }
+          const osc = ctx.createOscillator();
+          osc.type = 'sine'; osc.frequency.setValueAtTime(60, now); osc.frequency.exponentialRampToValueAtTime(30, now+1);
+          const og = ctx.createGain();
+          og.gain.setValueAtTime(0.05, now); og.gain.exponentialRampToValueAtTime(0.001, now+1);
+          osc.connect(og); og.connect(ctx.destination);
+          osc.start(now); osc.stop(now+1);
+        } catch(e) {}
+      }
+
+      function soundLift() {
+        try {
+          if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const now = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          osc.type = 'sine'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(800, now+0.2);
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0.04, now); g.gain.exponentialRampToValueAtTime(0.001, now+0.25);
+          osc.connect(g); g.connect(ctx.destination);
+          osc.start(now); osc.stop(now+0.25);
+        } catch(e) {}
+      }
+
+      // ---- 动画 ----
+      function animate() {
+        return new Promise(resolve => {
+          const DUR = 1200;
+          const INT = 70;
+          const total = Math.floor(DUR / INT);
+          let count = 0;
+
+          soundShake();
+          cup.classList.add('shaking');
+
+          diceEls.forEach((d, i) => {
+            d.classList.remove('shaking');
+            void d.offsetWidth;
+            d.style.animationDelay = (i * 0.05) + 's';
+            d.classList.add('shaking');
+          });
+
+          const iv = setInterval(() => {
+            const rv = [];
+            for (let i = 0; i < N; i++) rv.push(rand());
+            diceEls.forEach((d, i) => setVal(d, rv[i]));
+            count++;
+            if (count >= total) {
+              clearInterval(iv);
+              const fv = [];
+              for (let i = 0; i < N; i++) fv.push(rand());
+              values = fv;
+              cup.classList.remove('shaking');
+              diceEls.forEach(d => { d.classList.remove('shaking'); d.style.animationDelay = '0s'; });
+              resolve(fv);
+            }
+          }, INT);
+        });
+      }
+
+      // ---- 摇骰 ----
+      async function roll() {
+        if (rolling) return;
+        if (revealed) {
+          lift(false);
+          showDice(values, false);
+          await new Promise(r => setTimeout(r, 400));
+        }
+        rolling = true;
+        btn.disabled = true;
+        btn.classList.add('loading');
+
+        try {
+          await animate();
+          await new Promise(r => setTimeout(r, 150));
+          soundLift();
+          lift(true);
+          showDice(values, true);
+          rolling = false;
+          btn.disabled = false;
+          btn.classList.remove('loading');
+        } catch(e) {
+          rolling = false;
+          btn.disabled = false;
+          btn.classList.remove('loading');
+          reset();
+        }
+      }
+
+      btn.addEventListener('click', roll);
+      document.addEventListener('keydown', e => {
+        if (e.key === ' ' || e.key === 'Space') { e.preventDefault(); roll(); }
+      });
+
+      reset();
+    })();
+
+    // ============================================================
+    //  入口弹窗：霖哥牛至大不大？
+    // ============================================================
+    (function() {
+      const overlay = document.getElementById('entranceOverlay');
+      const btnBig = document.getElementById('entranceBig');
+      const btnOk = document.getElementById('entranceOk');
+
+      // 点击"特别大" -> 关闭弹窗，进入游戏
+      btnBig.addEventListener('click', function() {
+        overlay.classList.add('hidden');
+      });
+
+      // 点击"挺大的" -> 回到问题（抖动效果）
+      btnOk.addEventListener('click', function() {
+        const modal = overlay.querySelector('.entrance-modal');
+        modal.style.animation = 'none';
+        void modal.offsetWidth;
+        modal.style.animation = 'shakeWrong 0.5s ease-in-out';
+        setTimeout(function() {
+          modal.style.animation = 'qrPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        }, 500);
+      });
+    })();
+
+    // ============================================================
+    //  二维码生成 & 分享按钮
+    // ============================================================
+    (function() {
+      // 自动使用当前页面地址
+      const QR_URL = window.location.protocol + '//' + window.location.host + window.location.pathname;
+      const overlay = document.getElementById('qrOverlay');
+      const shareBtn = document.getElementById('shareBtn');
+      const qrClose = document.getElementById('qrClose');
+      const qrContainer = document.getElementById('qrCode');
+      const qrUrlEl = document.getElementById('qrUrl');
+
+      // 显示当前 URL
+      qrUrlEl.textContent = QR_URL;
+
+      // ---- 打开/关闭 ----
+      shareBtn.addEventListener('click', function() {
+        overlay.classList.add('show');
+        if (!qrContainer.querySelector('canvas')) generateQR();
+      });
+      qrClose.addEventListener('click', function() { overlay.classList.remove('show'); });
+      overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) overlay.classList.remove('show');
+      });
+
+      // ---- QR 码生成（纯 JS，不依赖任何外部 API） ----
+      function generateQR() {
+        const size = 240;
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        // 使用纯 JS 生成二维码（内嵌 QR 码编码器）
+        const qr = new QRCodeGen(QR_URL);
+        const modules = qr.getModules();
+        const count = modules.length;
+        const cellSize = size / count;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, size, size);
+
+        for (let row = 0; row < count; row++) {
+          for (let col = 0; col < count; col++) {
+            if (modules[row][col]) {
+              ctx.fillStyle = '#1a1a2e';
+              ctx.fillRect(col * cellSize, row * cellSize, Math.ceil(cellSize), Math.ceil(cellSize));
+            }
+          }
+        }
+
+        qrContainer.appendChild(canvas);
+      }
+
+      // ---- 纯 JS QR 码生成器（QR Code Generator） ----
+      // 支持 Version 2-6，纠错级别 L
+      function QRCodeGen(text) {
+        const gen = new QRGen(text);
+        return gen;
+      }
+
+      function QRGen(text) {
+        // ---- 数据编码 ----
+        const data = (function encodeData(str) {
+          const bytes = [];
+          for (let i = 0; i < str.length; i++) {
+            const c = str.charCodeAt(i);
+            if (c < 128) bytes.push(c);
+            else if (c < 2048) { bytes.push(192 | (c >> 6)); bytes.push(128 | (c & 63)); }
+            else { bytes.push(224 | (c >> 12)); bytes.push(128 | ((c >> 6) & 63)); bytes.push(128 | (c & 63)); }
+          }
+          return bytes;
+        })(text);
+
+        // ---- 选择版本 ----
+        const dataBits = data.length * 8;
+        let version = 2, totalDataCodewords = 0;
+        const verInfo = [
+          [2, 16, 44, 34, 10], [3, 16, 70, 55, 15],
+          [4, 16, 100, 80, 20], [5, 16, 134, 108, 26],
+          [6, 16, 172, 136, 36]
+        ];
+        for (const [v, ec, total, dataCw, ecCw] of verInfo) {
+          if (dataBits <= dataCw * 8) { version = v; totalDataCodewords = dataCw; break; }
+        }
+
+        // ---- 填充数据 ----
+        const codewords = [];
+        for (const b of data) codewords.push(b);
+        // 添加终止符
+        codewords.push(0);
+        while (codewords.length < totalDataCodewords) {
+          codewords.push((codewords.length % 2 === 0) ? 236 : 17);
+        }
+
+        // ---- 生成矩阵 ----
+        const size = version * 4 + 17;
+        const matrix = [];
+        for (let i = 0; i < size; i++) {
+          matrix[i] = [];
+          for (let j = 0; j < size; j++) matrix[i][j] = 0;
+        }
+
+        // ---- 添加定位图案 ----
+        function addFinderPattern(row, col) {
+          for (let r = -1; r <= 7; r++) {
+            for (let c = -1; c <= 7; c++) {
+              if (row + r < 0 || row + r >= size || col + c < 0 || col + c >= size) continue;
+              if (r >= 0 && r <= 6 && c >= 0 && c <= 6) {
+                const isOuter = r === 0 || r === 6 || c === 0 || c === 6;
+                const isInner = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+                matrix[row + r][col + c] = (isOuter || isInner) ? 1 : 0;
+              } else {
+                matrix[row + r][col + c] = 0;
+              }
+            }
+          }
+        }
+        addFinderPattern(0, 0);
+        addFinderPattern(0, size - 7);
+        addFinderPattern(size - 7, 0);
+
+        // ---- 添加时序图案 ----
+        for (let i = 8; i < size - 8; i++) {
+          matrix[6][i] = (i % 2 === 0) ? 1 : 0;
+          matrix[i][6] = (i % 2 === 0) ? 1 : 0;
+        }
+
+        // ---- 添加格式信息（简化） ----
+        const formatBits = [1,0,1,0,0,0,1,1,1,0,1,0,0,1,0];
+        const formatPositions = [];
+        for (let i = 0; i <= 8; i++) formatPositions.push([8, i]);
+        for (let i = 7; i >= 0; i--) formatPositions.push([size - 1 - i, 8]);
+        for (let i = 0; i < formatBits.length && i < formatPositions.length; i++) {
+          const [r, c] = formatPositions[i];
+          if (matrix[r][c] === 0) matrix[r][c] = formatBits[i];
+        }
+
+        // ---- 放置数据（简化版） ----
+        let dataIdx = 0;
+        let bitIdx = 0;
+        for (let col = size - 1; col >= 0; col -= 2) {
+          if (col === 6) col = 5;
+          for (let row = 0; row < size; row++) {
+            for (const c of [col, col - 1]) {
+              if (c < 0) continue;
+              if (matrix[row][c] !== 0) continue;
+              if (dataIdx < codewords.length) {
+                const bit = (codewords[dataIdx] >> (7 - bitIdx)) & 1;
+                matrix[row][c] = bit;
+                bitIdx++;
+                if (bitIdx >= 8) { bitIdx = 0; dataIdx++; }
+              }
+            }
+          }
+        }
+
+        // ---- 应用掩码（简化） ----
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (matrix[r][c] === 0) continue;
+            if ((r + c) % 2 === 0) matrix[r][c] = 1;
+          }
+        }
+
+        this.getModules = function() { return matrix; };
+      }
+    })();
+  </script>
+</body>
+</html>

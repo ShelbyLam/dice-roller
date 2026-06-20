@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>扫码打开 - 霖哥大牛至</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a15 70%, #050510 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+      padding: 20px;
+    }
+    .card {
+      background: linear-gradient(145deg, #1e1e32, #141428);
+      border-radius: 28px;
+      padding: 40px 32px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05);
+    }
+    .title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: 4px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #ffd700, #ffaa00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle {
+      color: #666688;
+      font-size: 0.85rem;
+      margin-bottom: 28px;
+      letter-spacing: 2px;
+    }
+    #qrcode {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+    #qrcode canvas {
+      border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      max-width: 100%;
+      height: auto;
+    }
+    .url-display {
+      color: #8888aa;
+      font-size: 0.8rem;
+      word-break: break-all;
+      background: rgba(0,0,0,0.3);
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.05);
+      margin-bottom: 20px;
+    }
+    .hint {
+      color: #555577;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+    }
+    .hint span {
+      color: #ffd700;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="title">霖哥大牛至</div>
+    <div class="subtitle">✦ 扫码打开骰盅 ✦</div>
+    <div id="qrcode"></div>
+    <div class="url-display" id="urlDisplay"></div>
+    <div class="hint">📱 手机连接同一 Wi-Fi，扫码即玩</div>
+  </div>
+
+  <script>
+    // ============================================================
+    //  纯 JS 二维码生成器（QR Code Generator）
+    //  不依赖任何第三方库
+    //  支持 URL 编码，生成标准 QR 码（Version 2-6）
+    // ============================================================
+
+    (function() {
+      'use strict';
+
+      // ---- 配置 ----
+      const URL = window.location.protocol + '//' + window.location.host + window.location.pathname.replace('qr.html','');
+      const QR_VERSION = 4;    // Version 4 = 33x33 矩阵
+      const MODULE_SIZE = 8;   // 每个模块像素大小
+      const QUIET_ZONE = 4;    // 空白区模块数
+
+      // ---- 获取 DOM ----
+      const container = document.getElementById('qrcode');
+      document.getElementById('urlDisplay').textContent = URL;
+
+      // ---- GF(256) 运算表 ----
+      const GF256_EXP = new Array(256);
+      const GF256_LOG = new Array(256);
+      (function initGF() {
+        let v = 1;
+        for (let i = 0; i < 255; i++) {
+          GF256_EXP[i] = v;
+          GF256_LOG[v] = i;
+          v = (v * 2) ^ (v >= 128 ? 0x11d : 0);
+        }
+        GF256_EXP[255] = GF256_EXP[0];
+      })();
+
+      function gfMul(a, b) {
+        if (a === 0 || b === 0) return 0;
+        return GF256_EXP[(GF256_LOG[a] + GF256_LOG[b]) % 255];
+      }
+
+      // ---- 多项式除法（用于生成纠错码） ----
+      function polyDiv(dividend, divisor) {
+        const result = dividend.slice();
+        for (let i = 0; i < dividend.length - divisor.length + 1; i++) {
+          const coef = result[i];
+          if (coef !== 0) {
+            for (let j = 0; j < divisor.length; j++) {
+              result[i + j] ^= gfMul(divisor[j], coef);
+            }
+          }
+        }
+        return result.slice(dividend.length - divisor.length + 1);
+      }
+
+      // ---- 生成纠错码生成多项式 ----
+      function genErrorPoly(degree) {
+        let poly = [1];
+        for (let i = 0; i < degree; i++) {
+          const a = GF256_EXP[i];
+          const newPoly = new Array(poly.length + 1).fill(0);
+          for (let j = 0; j < poly.length; j++) {
+            newPoly[j] ^= poly[j];
+            newPoly[j + 1] ^= gfMul(poly[j], a);
+          }
+          poly = newPoly;
+        }
+        return poly;
+      }
+
+      // ---- 计算纠错码 ----
+      function calculateECC(data, eccCount) {
+        const genPoly = genErrorPoly(eccCount);
+        const padded = data.concat(new Array(eccCount).fill(0));
+        const remainder = polyDiv(padded, genPoly);
+        return remainder;
+      }
+
+      // ---- 数据编码（数字 + 字母 + 字节混合模式） ----
+      function encodeData(text) {
+        const bytes = [];
+        for (let i = 0; i < text.length; i++) {
+          const code = text.charCodeAt(i);
+          if (code < 128) {
+            bytes.push(code);
+          } else if (code < 2048) {
+            bytes.push(0xc0 | (code >> 6));
+            bytes.push(0x80 | (code & 0x3f));
+          } else {
+            bytes.push(0xe0 | (code >> 12));
+            bytes.push(0x80 | ((code >> 6) & 0x3f));
+            bytes.push(0x80 | (code & 0x3f));
+          }
+        }
+        return bytes;
+      }
+
+      // ---- 获取 QR 版本信息 ----
+      function getVersionInfo(dataLen, version) {
+        const capacities = {
+          2: { total: 44, ecc: 28, data: 16, blocks: 1 },
+          3: { total: 70, ecc: 44, data: 26, blocks: 1 },
+          4: { total: 100, ecc: 64, data: 36, blocks: 2 },
+          5: { total: 134, ecc: 86, data: 48, blocks: 2 },
+          6: { total: 172, ecc: 108, data: 64, blocks: 4 }
+        };
+        let v = version;
+        while (v <= 6 && capacities[v] && dataLen > capacities[v].data) {
+          v++;
+        }
+        if (v > 6) v = 6;
+        return { version: v, ...capacities[v] };
+      }
+
+      // ---- 主函数：生成 QR 码矩阵 ----
+      function generateQR(text) {
+        const dataBytes = encodeData(text);
+        const info = getVersionInfo(dataBytes.length, QR_VERSION);
+        const v = info.version;
+        const size = 17 + 4 * v;
+
+        // 添加模式指示符（0100 = 字节编码）和长度
+        const modeBits = [0, 1, 0, 0];
+        let lenBits;
+        if (v <= 9) lenBits = 8;
+        else lenBits = 16;
+
+        const lenBinary = dataBytes.length.toString(2).padStart(lenBits, '0');
+        const lenBitsArr = lenBinary.split('').map(Number);
+
+        // 组装数据位流
+        const bitStream = [];
+        bitStream.push(...modeBits);
+        bitStream.push(...lenBitsArr);
+        for (const b of dataBytes) {
+          const bits = b.toString(2).padStart(8, '0');
+          bitStream.push(...bits.split('').map(Number));
+        }
+
+        // 添加终止符
+        const terminatorLen = Math.min(4, info.total * 8 - bitStream.length);
+        for (let i = 0; i < terminatorLen; i++) bitStream.push(0);
+
+        // 填充到 8 的倍数
+        while (bitStream.length % 8 !== 0) bitStream.push(0);
+
+        // 填充字节（0xec, 0x11 交替）
+        const padBytes = [0xec, 0x11];
+        let padIdx = 0;
+        while (bitStream.length / 8 < info.data) {
+          const pad = padBytes[padIdx % 2];
+          const bits = pad.toString(2).padStart(8, '0');
+          bitStream.push(...bits.split('').map(Number));
+          padIdx++;
+        }
+
+        // 截断到数据容量
+        const dataCodewords = [];
+        for (let i = 0; i < info.data; i++) {
+          let byte = 0;
+          for (let j = 0; j < 8; j++) {
+            byte = (byte << 1) | bitStream[i * 8 + j];
+          }
+          dataCodewords.push(byte);
+        }
+
+        // 计算纠错码
+        const eccCodewords = calculateECC(dataCodewords, info.ecc);
+
+        // 交织（简化版：单块或均分）
+        const allCodewords = dataCodewords.concat(eccCodewords);
+
+        // ---- 创建矩阵 ----
+        const matrix = [];
+        for (let i = 0; i < size; i++) {
+          matrix[i] = new Array(size).fill(0);
+        }
+
+        // ---- 添加功能图形 ----
+        // 定位图案
+        function addFinderPattern(row, col) {
+          for (let r = -1; r <= 7; r++) {
+            for (let c = -1; c <= 7; c++) {
+              const nr = row + r, nc = col + c;
+              if (nr < 0 || nr >= size || nc < 0 || nc >= size) continue;
+              if (r >= 0 && r <= 6 && c >= 0 && c <= 6) {
+                const isOuter = r === 0 || r === 6 || c === 0 || c === 6;
+                const isInner = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+                matrix[nr][nc] = (isOuter || isInner) ? 1 : 0;
+              } else {
+                matrix[nr][nc] = 0; // 分隔符
+              }
+            }
+          }
+        }
+
+        addFinderPattern(0, 0);
+        addFinderPattern(0, size - 7);
+        addFinderPattern(size - 7, 0);
+
+        // 定时图案
+        for (let i = 8; i < size - 8; i++) {
+          matrix[6][i] = i % 2 === 0 ? 1 : 0;
+          matrix[i][6] = i % 2 === 0 ? 1 : 0;
+        }
+
+        // 格式信息占位（稍后填充）
+        for (let i = 0; i <= 8; i++) {
+          if (i !== 6) {
+            matrix[8][i] = 0;
+            matrix[i][8] = 0;
+          }
+        }
+        for (let i = size - 8; i < size; i++) {
+          matrix[8][i] = 0;
+        }
+        for (let i = size - 7; i <= size - 1; i++) {
+          matrix[i][8] = 0;
+        }
+        // 暗模块
+        matrix[size - 8][8] = 1;
+
+        // ---- 放置数据 ----
+        let dataIdx = 0;
+        let dir = -1; // -1 = 向上, 1 = 向下
+        let col = size - 1;
+
+        while (col > 0) {
+          if (col === 6) col--; // 跳过定时图案列
+
+          for (let row = (dir === -1) ? size - 1 : 0;
+               dir === -1 ? row >= 0 : row < size;
+               row += dir) {
+
+            for (let c = 0; c < 2; c++) {
+              const curCol = col - c;
+              if (curCol < 0) continue;
+
+              // 跳过功能图形区域
+              if (isFuncArea(row, curCol, size)) continue;
+
+              if (dataIdx < allCodewords.length * 8) {
+                const byteIdx = Math.floor(dataIdx / 8);
+                const bitIdx = 7 - (dataIdx % 8);
+                const bit = (allCodewords[byteIdx] >> bitIdx) & 1;
+                matrix[row][curCol] = bit;
+                dataIdx++;
+              }
+            }
+          }
+          dir = -dir;
+          col -= 2;
+        }
+
+        // ---- 格式信息（纠错级别 M + 掩码 0） ----
+        // 使用掩码 0（最简单），纠错级别 M
+        const formatBits = [1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0];
+        applyFormatInfo(matrix, formatBits, size);
+
+        // ---- 应用掩码 0 ----
+        applyMask(matrix, 0, size);
+
+        return matrix;
+      }
+
+      // ---- 判断是否为功能图形区域 ----
+      function isFuncArea(row, col, size) {
+        // 定位图案
+        if ((row < 9 && col < 9) ||
+            (row < 9 && col >= size - 8) ||
+            (row >= size - 8 && col < 9)) return true;
+        // 定时图案
+        if (row === 6 || col === 6) return true;
+        // 格式信息
+        if (row === 8 || col === 8) return true;
+        return false;
+      }
+
+      // ---- 应用格式信息 ----
+      function applyFormatInfo(matrix, bits, size) {
+        const positions = [
+          [0,8],[1,8],[2,8],[3,8],[4,8],[5,8],[7,8],[8,8],
+          [8,7],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0],
+          [8,size-8],[8,size-7],[8,size-6],[8,size-5],[8,size-4],[8,size-3],[8,size-2],[8,size-1],
+          [size-1,8],[size-2,8],[size-3,8],[size-4,8],[size-5,8],[size-6,8],[size-7,8]
+        ];
+        for (let i = 0; i < 15 && i < positions.length; i++) {
+          const [r, c] = positions[i];
+          if (r >= 0 && r < size && c >= 0 && c < size) {
+            matrix[r][c] = bits[i];
+          }
+        }
+        // 暗模块
+        if (size - 8 < size && 8 < size) {
+          matrix[size - 8][8] = 1;
+        }
+      }
+
+      // ---- 应用掩码 ----
+      function applyMask(matrix, maskIdx, size) {
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (isFuncArea(r, c, size)) continue;
+            let condition = false;
+            switch (maskIdx) {
+              case 0: condition = (r + c) % 2 === 0; break;
+              case 1: condition = r % 2 === 0; break;
+              case 2: condition = c % 3 === 0; break;
+              case 3: condition = (r + c) % 3 === 0; break;
+              case 4: condition = (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0; break;
+              case 5: condition = (r * c) % 2 + (r * c) % 3 === 0; break;
+              case 6: condition = ((r * c) % 2 + (r * c) % 3) % 2 === 0; break;
+              case 7: condition = ((r + c) % 2 + (r * c) % 3) % 2 === 0; break;
+            }
+            if (condition) matrix[r][c] ^= 1;
+          }
+        }
+      }
+
+      // ---- 渲染 QR 码到 Canvas ----
+      function renderQR(matrix) {
+        const size = matrix.length;
+        const canvasSize = (size + QUIET_ZONE * 2) * MODULE_SIZE;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvasSize;
+        canvas.height = canvasSize;
+        const ctx = canvas.getContext('2d');
+
+        // 白色背景
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+        // 绘制模块
+        ctx.fillStyle = '#1a1a2e';
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (matrix[r][c] === 1) {
+              const x = (c + QUIET_ZONE) * MODULE_SIZE;
+              const y = (r + QUIET_ZONE) * MODULE_SIZE;
+              ctx.fillRect(x, y, MODULE_SIZE, MODULE_SIZE);
+            }
+          }
+        }
+
+        return canvas;
+      }
+
+      // ---- 执行 ----
+      try {
+        const matrix = generateQR(URL);
+        const canvas = renderQR(matrix);
+        container.appendChild(canvas);
+      } catch (e) {
+        container.innerHTML = '<div style="color:#e94560;padding:20px;">二维码生成失败，请直接访问链接</div>';
+        console.error('QR Error:', e);
+      }
+    })();
+  </script>
+</body>
+</html>
